@@ -38,7 +38,6 @@
     overflow: hidden;
   }
 
-  /* Efecto de grid de fondo */
   body::before {
     content: "";
     position: fixed;
@@ -52,7 +51,6 @@
     z-index: 0;
   }
 
-  /* Resplandor central */
   body::after {
     content: "";
     position: fixed;
@@ -78,7 +76,6 @@
     gap: 24px;
   }
 
-  /* HEADER */
   .header {
     text-align: center;
   }
@@ -99,7 +96,6 @@
     letter-spacing: 1px;
   }
 
-  /* PANEL */
   .panel {
     background: var(--bg-panel);
     border: 1px solid var(--bg-panel-border);
@@ -139,7 +135,6 @@
     box-shadow: 0 0 6px var(--accent-glow);
   }
 
-  /* CONFIGURACIÓN URL */
   .config-row {
     display: flex;
     gap: 10px;
@@ -163,7 +158,6 @@
     border-color: var(--accent);
   }
 
-  /* BOTONES */
   .btn {
     padding: 10px 22px;
     border: none;
@@ -206,13 +200,11 @@
     transform: none;
   }
 
-  /* BOTONES ROW */
   .btn-row {
     display: flex;
     gap: 10px;
   }
 
-  /* STATUS BAR */
   .status-bar {
     display: flex;
     gap: 20px;
@@ -257,7 +249,6 @@
     50% { opacity: 0.4; }
   }
 
-  /* FPS counter */
   .fps-badge {
     font-family: "Share Tech Mono", monospace;
     font-size: 0.78rem;
@@ -268,7 +259,6 @@
     border: 1px solid rgba(0, 240, 255, 0.2);
   }
 
-  /* PREVIEW VIDEO */
   .preview-wrap {
     width: 100%;
     aspect-ratio: 16 / 9;
@@ -312,7 +302,6 @@
     letter-spacing: 1px;
   }
 
-  /* Corner decorations */
   .corner {
     position: absolute;
     width: 16px;
@@ -325,12 +314,10 @@
   .corner.bl { bottom: 6px; left: 6px; border-width: 0 0 2px 2px; }
   .corner.br { bottom: 6px; right: 6px; border-width: 0 2px 2px 0; }
 
-  /* HIDDEN CANVAS para convertir video frame a base64 */
   canvas {
     display: none;
   }
 
-  /* INSTRUCCIONES */
   .instructions {
     background: rgba(15, 23, 42, 0.8);
     border: 1px solid #1e293b;
@@ -370,13 +357,11 @@
 
 <div class="container">
 
-  <!-- HEADER -->
   <div class="header">
     <h1>⟡ Screen Relay</h1>
     <p>Captura tu pantalla y la envía a Roblox en tiempo real</p>
   </div>
 
-  <!-- CONFIG PANEL -->
   <div class="panel">
     <div class="panel-title"><span class="dot"></span> Configuración del servidor</div>
     <div class="config-row">
@@ -384,7 +369,6 @@
     </div>
   </div>
 
-  <!-- CONTROLES + STATUS -->
   <div class="panel">
     <div class="panel-title"><span class="dot"></span> Controles</div>
     <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
@@ -406,7 +390,6 @@
     </div>
   </div>
 
-  <!-- PREVIEW -->
   <div class="panel" style="padding:12px;">
     <div class="panel-title"><span class="dot"></span> Preview — Captura en vivo</div>
     <div class="preview-wrap">
@@ -422,11 +405,10 @@
     </div>
   </div>
 
-  <!-- INSTRUCCIONES -->
   <div class="instructions">
-    <div class="step"><span class="num">1</span><span>Pone la URL de tu servidor de Render arriba (formato <strong>wss://tu-app.onrender.com</strong>)</span></div>
+    <div class="step"><span class="num">1</span><span>Pon la URL de tu servidor de Render arriba (formato <strong>wss://tu-app.onrender.com</strong>)</span></div>
     <div class="step"><span class="num">2</span><span>Haz clic en <strong>Iniciar Captura</strong> y selecciona la ventana o pantalla que quieres compartir</span></div>
-    <div class="step"><span class="num">3</span><span>En Roblox, el script descargará los frames automáticamente desde <strong>https://tu-app.onrender.com/frame</strong></span></div>
+    <div class="step"><span class="num">3</span><span>En Roblox, el script descargará los frames automáticamente desde <strong>https://tu-app.onrender.com/frame.png</strong></span></div>
     <div class="step"><span class="num">4</span><span>¡Listo! Lo que ve esta web lo verás en la SurfaceGui dentro del juego</span></div>
   </div>
 
@@ -434,11 +416,11 @@
 
 <script>
 // ============================================================
-// CONFIGURACIÓN
+// CONFIGURACIÓN - 1920x1080 para coincidir con tu ImageLabel
 // ============================================================
-const TARGET_FPS = 10;  // FPS que se envían al servidor
-const CANVAS_WIDTH = 320;   // debe coincidir con el servidor (IMG_WIDTH en server.js)
-const CANVAS_HEIGHT = 180;  // debe coincidir con el servidor (IMG_HEIGHT en server.js)
+const TARGET_FPS = 5;  // FPS más bajo para no saturar
+const CANVAS_WIDTH = 1920;   // coincide con el servidor
+const CANVAS_HEIGHT = 1080;
 
 // ============================================================
 // REFERENCIAS DOM
@@ -464,13 +446,12 @@ canvas.height = CANVAS_HEIGHT;
 // ============================================================
 let ws            = null;
 let mediaStream   = null;
-let animFrame     = null;
 let isCapturing   = false;
 let frameCount    = 0;
 let lastFpsTime   = Date.now();
 
 // ============================================================
-// WEBSOCKET — conectar al servidor
+// WEBSOCKET
 // ============================================================
 function connectWebSocket() {
   const url = serverUrlInput.value.trim();
@@ -496,7 +477,6 @@ function connectWebSocket() {
   ws.onclose = () => {
     setWsStatus("disconnected");
     console.log("❌ WebSocket desconectado");
-    // Auto-reconectar si estamos capturando
     if (isCapturing) {
       setTimeout(connectWebSocket, 2000);
     }
@@ -508,7 +488,6 @@ function connectWebSocket() {
 // ============================================================
 async function startCapture() {
   try {
-    // Solicita al usuario que elija pantalla/ventana
     mediaStream = await navigator.mediaDevices.getDisplayMedia({
       video: {
         width:  { ideal: CANVAS_WIDTH },
@@ -518,20 +497,16 @@ async function startCapture() {
       audio: false
     });
 
-    // Conectar WebSocket
     connectWebSocket();
 
-    // Mostrar preview
     previewVideo.srcObject = mediaStream;
     previewVideo.classList.add("active");
     placeholder.style.display = "none";
 
-    // Si el usuario cancela la captura desde el sistema operativo
     mediaStream.getVideoTracks()[0].onended = () => {
       stopCapture();
     };
 
-    // Iniciar loop de frames
     isCapturing = true;
     setCaptureStatus("capturing");
     btnStart.disabled = true;
@@ -547,11 +522,6 @@ async function startCapture() {
 
 function stopCapture() {
   isCapturing = false;
-
-  if (animFrame) {
-    cancelAnimationFrame(animFrame);
-    animFrame = null;
-  }
 
   if (mediaStream) {
     mediaStream.getTracks().forEach(track => track.stop());
@@ -574,16 +544,13 @@ function stopCapture() {
 }
 
 // ============================================================
-// LOOP — envía frames al servidor a TARGET_FPS
+// LOOP DE ENVÍO
 // ============================================================
 function sendFrameLoop() {
   if (!isCapturing) return;
 
-  // Dibujar el video en el canvas oculto
   ctx.drawImage(previewVideo, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-  // Convertir canvas a base64 PNG (calidad baja para ser liviano)
-  // Usamos toBlob con tipo image/jpeg y calidad baja para reducir tamaño
   canvas.toBlob((blob) => {
     if (!blob || !isCapturing) return;
 
@@ -591,10 +558,8 @@ function sendFrameLoop() {
     reader.onloadend = () => {
       if (!isCapturing) return;
 
-      // Extraer solo la parte base64 (sin el prefijo "data:image/jpeg;base64,")
       const base64 = reader.result.split(",")[1];
 
-      // Enviar por WebSocket si está conectado
       if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({
           type: "frame",
@@ -602,7 +567,6 @@ function sendFrameLoop() {
         }));
       }
 
-      // Contador FPS
       frameCount++;
       const now = Date.now();
       if (now - lastFpsTime >= 1000) {
@@ -612,18 +576,15 @@ function sendFrameLoop() {
       }
     };
     reader.readAsDataURL(blob);
-  }, "image/jpeg", 0.6); // JPEG calidad 0.6 → buen balance tamaño/calidad
+  }, "image/jpeg", 0.7);
 
-  // Programar siguiente frame
-  // Calculamos el delay para mantener TARGET_FPS
-  const delay = 1000 / TARGET_FPS;
   setTimeout(() => {
     if (isCapturing) sendFrameLoop();
-  }, delay);
+  }, 1000 / TARGET_FPS);
 }
 
 // ============================================================
-// UI — actualizar indicadores
+// UI
 // ============================================================
 function setWsStatus(state) {
   indWs.className = "status-indicator";
@@ -633,7 +594,7 @@ function setWsStatus(state) {
       txtWs.textContent = "Conectado";
       break;
     case "connecting":
-      indWs.classList.add("capturing"); // parpadeo
+      indWs.classList.add("capturing");
       txtWs.textContent = "Conectando...";
       break;
     case "error":
