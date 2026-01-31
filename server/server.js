@@ -1,38 +1,32 @@
-const WebSocket = require("ws");
 const http = require("http");
-const { createCanvas } = require("canvas");
+const { createCanvas, Image } = require("canvas");
 
 // =====================================================
 // ESTADO GLOBAL
 // =====================================================
-let lastFrame = null;       // último frame recibido (base64 JPEG de la web)
-let lastPNG   = null;       // ese mismo frame pero como PNG buffer
-const captureClients = new Set();
+let lastFrame = null;
+let lastPNG   = null;
 
 // =====================================================
-// DECODIFICAR JPEG → PNG
-// Roblox 2021 necesita imágenes PNG, no bytes RGBA crudos
+// CONFIGURACIÓN
 // =====================================================
-const IMG_WIDTH  = 1920;  // mismo tamaño que tu ImageLabel
+const IMG_WIDTH  = 1920;
 const IMG_HEIGHT = 1080;
 
+// =====================================================
+// CONVERTIR JPEG → PNG
+// =====================================================
 async function convertJpegToPNG(base64Jpeg) {
   try {
     const canvas = createCanvas(IMG_WIDTH, IMG_HEIGHT);
     const ctx = canvas.getContext("2d");
     
-    // Cargar la imagen JPEG
-    const { Image } = require("canvas");
     const img = new Image();
-    
-    // Convertir base64 a buffer
     const imgBuf = Buffer.from(base64Jpeg, "base64");
     img.src = imgBuf;
     
-    // Dibujar en el canvas
     ctx.drawImage(img, 0, 0, IMG_WIDTH, IMG_HEIGHT);
     
-    // Convertir a PNG buffer
     return canvas.toBuffer("image/png");
   } catch(e) {
     console.error("Error convirtiendo JPEG a PNG:", e.message);
@@ -41,19 +35,72 @@ async function convertJpegToPNG(base64Jpeg) {
 }
 
 // =====================================================
+// LEER BODY DE POST REQUEST
+// =====================================================
+function getBody(req) {
+  return new Promise((resolve, reject) => {
+    let body = '';
+    req.on('data', chunk => {
+      body += chunk.toString();
+    });
+    req.on('end', () => {
+      resolve(body);
+    });
+    req.on('error', reject);
+  });
+}
+
+// =====================================================
 // SERVIDOR HTTP
 // =====================================================
 const server = http.createServer(async (req, res) => {
   const urlPath = req.url.split("?")[0];
 
-  // --------------------------------------------------
-  // GET /frame.png  →  retorna imagen PNG
-  // Roblox carga esto directamente en el ImageLabel
-  // --------------------------------------------------
+  // CORS headers
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
+  // OPTIONS preflight
+  if (req.method === "OPTIONS") {
+    res.writeHead(200);
+    res.end();
+    return;
+  }
+
+  // POST /upload - recibe frames desde la web
+  if (urlPath === "/upload" && req.method === "POST") {
+    try {
+      const body = await getBody(req);
+      const data = JSON.parse(body);
+      
+      if (data.type === "frame" && data.payload) {
+        lastFrame = data.payload;
+        
+        const png = await convertJpegToPNG(data.payload);
+        if (png) {
+          lastPNG = png;
+          console.log("✅ Frame recibido y convertido (" + png.length + " bytes)");
+        }
+        
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ success: true }));
+      } else {
+        res.writeHead(400);
+        res.end(JSON.stringify({ error: "Invalid data" }));
+      }
+    } catch(e) {
+      console.error("Error en /upload:", e.message);
+      res.writeHead(500);
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return;
+  }
+
+  // GET /frame.png - Roblox descarga la imagen
   if (urlPath === "/frame.png" && req.method === "GET") {
     res.writeHead(200, {
       "Content-Type": "image/png",
-      "Access-Control-Allow-Origin": "*",
       "Cache-Control": "no-cache, no-store, must-revalidate",
       "Pragma": "no-cache",
       "Expires": "0",
@@ -62,13 +109,11 @@ const server = http.createServer(async (req, res) => {
     if (lastPNG) {
       res.end(lastPNG);
     } else {
-      // Si no hay frame, crear una imagen negra
       const canvas = createCanvas(IMG_WIDTH, IMG_HEIGHT);
       const ctx = canvas.getContext("2d");
       ctx.fillStyle = "#000000";
       ctx.fillRect(0, 0, IMG_WIDTH, IMG_HEIGHT);
       
-      // Texto de "esperando..."
       ctx.fillStyle = "#00f0ff";
       ctx.font = "48px Arial";
       ctx.textAlign = "center";
@@ -79,30 +124,17 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // --------------------------------------------------
-  // GET /status  →  info del servidor
-  // --------------------------------------------------
+  // GET /status
   if (urlPath === "/status" && req.method === "GET") {
     res.writeHead(200, {
       "Content-Type": "application/json",
-      "Access-Control-Allow-Origin": "*",
     });
     res.end(JSON.stringify({
       status: "online",
       hasFrame: !!lastFrame,
-      captureConnected: captureClients.size > 0,
       resolution: { width: IMG_WIDTH, height: IMG_HEIGHT },
+      method: "HTTP POST (no WebSocket)",
     }));
-    return;
-  }
-
-  // CORS preflight
-  if (req.method === "OPTIONS") {
-    res.writeHead(200, {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, OPTIONS",
-    });
-    res.end();
     return;
   }
 
@@ -111,51 +143,14 @@ const server = http.createServer(async (req, res) => {
 });
 
 // =====================================================
-// WEBSOCKET — recibe frames de la web capturadora
-// =====================================================
-const wss = new WebSocket.Server({ server });
-
-wss.on("connection", (ws) => {
-  console.log("✅ Cliente WebSocket conectado");
-  captureClients.add(ws);
-
-  ws.on("message", async (message) => {
-    try {
-      const data = JSON.parse(message);
-
-      if (data.type === "frame") {
-        lastFrame = data.payload;  // guardar el base64 JPEG
-
-        // Convertir a PNG para Roblox
-        const png = await convertJpegToPNG(data.payload);
-        if (png) {
-          lastPNG = png;
-          console.log("✅ Frame convertido a PNG (" + png.length + " bytes)");
-        }
-      }
-    } catch (e) {
-      console.error("Error parsing WebSocket message:", e.message);
-    }
-  });
-
-  ws.on("close", () => {
-    console.log("❌ Cliente desconectado");
-    captureClients.delete(ws);
-  });
-
-  ws.on("error", (err) => {
-    console.error("WebSocket error:", err.message);
-    captureClients.delete(ws);
-  });
-});
-
-// =====================================================
-// INICIAR
+// INICIAR SERVIDOR
 // =====================================================
 const PORT = process.env.PORT || 3000;
 
-server.listen(PORT, () => {
-  console.log(`🚀 Servidor iniciado en el puerto ${PORT}`);
-  console.log(`📷 GET /frame.png → imagen PNG (${IMG_WIDTH}x${IMG_HEIGHT})`);
-  console.log(`📊 GET /status   → info del servidor`);
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 Servidor HTTP iniciado en el puerto ${PORT}`);
+  console.log(`📷 GET  /frame.png → imagen PNG (${IMG_WIDTH}x${IMG_HEIGHT})`);
+  console.log(`📤 POST /upload    → recibir frames`);
+  console.log(`📊 GET  /status    → info del servidor`);
+  console.log(`✅ Sin WebSocket - 100% compatible con Render Free`);
 });
