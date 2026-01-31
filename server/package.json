@@ -1,0 +1,13 @@
+{
+  "name": "screen-relay-server",
+  "version": "1.0.0",
+  "description": "WebSocket relay server - recibe frames JPEG y los convierte a RGBA para Roblox",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "ws": "^8.17.0",
+    "canvas": "^2.11.1"
+  }
+}
