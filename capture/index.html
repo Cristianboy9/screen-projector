@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Screen Capture → Roblox</title>
+<style>
+  @import url("https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@300;400;500;600;700&display=swap");
+
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  :root {
+    --bg-deep: #0a0e1a;
+    --bg-panel: #111827;
+    --bg-panel-border: #1e293b;
+    --accent: #00f0ff;
+    --accent-dim: rgba(0, 240, 255, 0.15);
+    --accent-glow: rgba(0, 240, 255, 0.4);
+    --text-primary: #e2e8f0;
+    --text-secondary: #64748b;
+    --green: #22c55e;
+    --red: #ef4444;
+    --orange: #f59e0b;
+  }
+
+  body {
+    background: var(--bg-deep);
+    color: var(--text-primary);
+    font-family: "Rajdhani", sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    overflow: hidden;
+  }
+
+  /* Efecto de grid de fondo */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(var(--accent-dim) 1px, transparent 1px),
+      linear-gradient(90deg, var(--accent-dim) 1px, transparent 1px);
+    background-size: 60px 60px;
+    opacity: 0.3;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Resplandor central */
+  body::after {
+    content: "";
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 600px;
+    height: 600px;
+    background: radial-gradient(circle, rgba(0, 240, 255, 0.06) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 900px;
+    padding: 30px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 24px;
+  }
+
+  /* HEADER */
+  .header {
+    text-align: center;
+  }
+
+  .header h1 {
+    font-family: "Share Tech Mono", monospace;
+    font-size: 1.8rem;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--accent);
+    text-shadow: 0 0 20px var(--accent-glow);
+  }
+
+  .header p {
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+    margin-top: 4px;
+    letter-spacing: 1px;
+  }
+
+  /* PANEL */
+  .panel {
+    background: var(--bg-panel);
+    border: 1px solid var(--bg-panel-border);
+    border-radius: 12px;
+    padding: 20px;
+    width: 100%;
+    position: relative;
+  }
+
+  .panel::before {
+    content: "";
+    position: absolute;
+    top: -1px;
+    left: 20px;
+    right: 20px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  }
+
+  .panel-title {
+    font-family: "Share Tech Mono", monospace;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--accent);
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .panel-title .dot {
+    width: 6px;
+    height: 6px;
+    background: var(--accent);
+    border-radius: 50%;
+    box-shadow: 0 0 6px var(--accent-glow);
+  }
+
+  /* CONFIGURACIÓN URL */
+  .config-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .config-row input {
+    flex: 1;
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    padding: 10px 14px;
+    color: var(--text-primary);
+    font-family: "Share Tech Mono", monospace;
+    font-size: 0.82rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .config-row input:focus {
+    border-color: var(--accent);
+  }
+
+  /* BOTONES */
+  .btn {
+    padding: 10px 22px;
+    border: none;
+    border-radius: 8px;
+    font-family: "Rajdhani", sans-serif;
+    font-weight: 600;
+    font-size: 0.95rem;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+
+  .btn-start {
+    background: linear-gradient(135deg, #00c8d4, #00f0ff);
+    color: #0a0e1a;
+    box-shadow: 0 0 14px var(--accent-glow);
+  }
+
+  .btn-start:hover {
+    box-shadow: 0 0 24px var(--accent-glow);
+    transform: translateY(-1px);
+  }
+
+  .btn-stop {
+    background: linear-gradient(135deg, #dc2626, #ef4444);
+    color: #fff;
+    box-shadow: 0 0 14px rgba(239, 68, 68, 0.4);
+  }
+
+  .btn-stop:hover {
+    box-shadow: 0 0 24px rgba(239, 68, 68, 0.5);
+  }
+
+  .btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    box-shadow: none;
+    transform: none;
+  }
+
+  /* BOTONES ROW */
+  .btn-row {
+    display: flex;
+    gap: 10px;
+  }
+
+  /* STATUS BAR */
+  .status-bar {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+
+  .status-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: "Share Tech Mono", monospace;
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+  }
+
+  .status-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--text-secondary);
+    transition: all 0.3s;
+  }
+
+  .status-indicator.connected {
+    background: var(--green);
+    box-shadow: 0 0 8px rgba(34, 197, 94, 0.5);
+  }
+
+  .status-indicator.capturing {
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--accent-glow);
+    animation: pulse 1.5s infinite;
+  }
+
+  .status-indicator.error {
+    background: var(--red);
+    box-shadow: 0 0 8px rgba(239, 68, 68, 0.5);
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  /* FPS counter */
+  .fps-badge {
+    font-family: "Share Tech Mono", monospace;
+    font-size: 0.78rem;
+    color: var(--accent);
+    background: var(--accent-dim);
+    padding: 3px 10px;
+    border-radius: 20px;
+    border: 1px solid rgba(0, 240, 255, 0.2);
+  }
+
+  /* PREVIEW VIDEO */
+  .preview-wrap {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    background: #0d1220;
+    border: 1px solid var(--bg-panel-border);
+    border-radius: 12px;
+    overflow: hidden;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .preview-wrap video {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: none;
+  }
+
+  .preview-wrap video.active {
+    display: block;
+  }
+
+  .preview-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    color: var(--text-secondary);
+  }
+
+  .preview-placeholder .icon {
+    font-size: 2.5rem;
+    opacity: 0.4;
+  }
+
+  .preview-placeholder p {
+    font-family: "Share Tech Mono", monospace;
+    font-size: 0.78rem;
+    letter-spacing: 1px;
+  }
+
+  /* Corner decorations */
+  .corner {
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    border-color: var(--accent);
+    border-style: solid;
+  }
+  .corner.tl { top: 6px; left: 6px; border-width: 2px 0 0 2px; }
+  .corner.tr { top: 6px; right: 6px; border-width: 2px 2px 0 0; }
+  .corner.bl { bottom: 6px; left: 6px; border-width: 0 0 2px 2px; }
+  .corner.br { bottom: 6px; right: 6px; border-width: 0 2px 2px 0; }
+
+  /* HIDDEN CANVAS para convertir video frame a base64 */
+  canvas {
+    display: none;
+  }
+
+  /* INSTRUCCIONES */
+  .instructions {
+    background: rgba(15, 23, 42, 0.8);
+    border: 1px solid #1e293b;
+    border-radius: 10px;
+    padding: 16px 20px;
+    width: 100%;
+  }
+
+  .instructions .step {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    padding: 6px 0;
+    font-size: 0.88rem;
+    color: var(--text-secondary);
+  }
+
+  .instructions .step .num {
+    font-family: "Share Tech Mono", monospace;
+    color: var(--accent);
+    font-size: 0.78rem;
+    min-width: 22px;
+    background: var(--accent-dim);
+    border-radius: 4px;
+    padding: 2px 6px;
+    text-align: center;
+  }
+
+  .instructions .step strong {
+    color: var(--text-primary);
+  }
+</style>
+</head>
+<body>
+
+<canvas id="captureCanvas"></canvas>
+
+<div class="container">
+
+  <!-- HEADER -->
+  <div class="header">
+    <h1>⟡ Screen Relay</h1>
+    <p>Captura tu pantalla y la envía a Roblox en tiempo real</p>
+  </div>
+
+  <!-- CONFIG PANEL -->
+  <div class="panel">
+    <div class="panel-title"><span class="dot"></span> Configuración del servidor</div>
+    <div class="config-row">
+      <input type="text" id="serverUrl" value="ws://localhost:3000" placeholder="wss://tu-servidor.onrender.com" />
+    </div>
+  </div>
+
+  <!-- CONTROLES + STATUS -->
+  <div class="panel">
+    <div class="panel-title"><span class="dot"></span> Controles</div>
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+      <div class="btn-row">
+        <button class="btn btn-start" id="btnStart">Iniciar Captura</button>
+        <button class="btn btn-stop" id="btnStop" disabled>Detener</button>
+      </div>
+      <div class="status-bar">
+        <div class="status-item">
+          <div class="status-indicator" id="indWs"></div>
+          <span id="txtWs">WebSocket</span>
+        </div>
+        <div class="status-item">
+          <div class="status-indicator" id="indCap"></div>
+          <span id="txtCap">Captura</span>
+        </div>
+        <div class="fps-badge" id="fpsBadge">0 FPS</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PREVIEW -->
+  <div class="panel" style="padding:12px;">
+    <div class="panel-title"><span class="dot"></span> Preview — Captura en vivo</div>
+    <div class="preview-wrap">
+      <div class="corner tl"></div>
+      <div class="corner tr"></div>
+      <div class="corner bl"></div>
+      <div class="corner br"></div>
+      <video id="previewVideo" autoplay muted playsinline></video>
+      <div class="preview-placeholder" id="placeholder">
+        <div class="icon">◎</div>
+        <p>Sin captura activa</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- INSTRUCCIONES -->
+  <div class="instructions">
+    <div class="step"><span class="num">1</span><span>Pone la URL de tu servidor de Render arriba (formato <strong>wss://tu-app.onrender.com</strong>)</span></div>
+    <div class="step"><span class="num">2</span><span>Haz clic en <strong>Iniciar Captura</strong> y selecciona la ventana o pantalla que quieres compartir</span></div>
+    <div class="step"><span class="num">3</span><span>En Roblox, el script descargará los frames automáticamente desde <strong>https://tu-app.onrender.com/frame</strong></span></div>
+    <div class="step"><span class="num">4</span><span>¡Listo! Lo que ve esta web lo verás en la SurfaceGui dentro del juego</span></div>
+  </div>
+
+</div>
+
+<script>
+// ============================================================
+// CONFIGURACIÓN
+// ============================================================
+const TARGET_FPS = 10;  // FPS que se envían al servidor
+const CANVAS_WIDTH = 320;   // debe coincidir con el servidor (IMG_WIDTH en server.js)
+const CANVAS_HEIGHT = 180;  // debe coincidir con el servidor (IMG_HEIGHT en server.js)
+
+// ============================================================
+// REFERENCIAS DOM
+// ============================================================
+const serverUrlInput = document.getElementById("serverUrl");
+const btnStart       = document.getElementById("btnStart");
+const btnStop        = document.getElementById("btnStop");
+const previewVideo   = document.getElementById("previewVideo");
+const placeholder    = document.getElementById("placeholder");
+const canvas         = document.getElementById("captureCanvas");
+const ctx            = canvas.getContext("2d");
+const indWs          = document.getElementById("indWs");
+const txtWs          = document.getElementById("txtWs");
+const indCap         = document.getElementById("indCap");
+const txtCap         = document.getElementById("txtCap");
+const fpsBadge       = document.getElementById("fpsBadge");
+
+canvas.width  = CANVAS_WIDTH;
+canvas.height = CANVAS_HEIGHT;
+
+// ============================================================
+// ESTADO
+// ============================================================
+let ws            = null;
+let mediaStream   = null;
+let animFrame     = null;
+let isCapturing   = false;
+let frameCount    = 0;
+let lastFpsTime   = Date.now();
+
+// ============================================================
+// WEBSOCKET — conectar al servidor
+// ============================================================
+function connectWebSocket() {
+  const url = serverUrlInput.value.trim();
+  if (!url) {
+    alert("Por favor, introduce la URL del servidor.");
+    return;
+  }
+
+  setWsStatus("connecting");
+
+  ws = new WebSocket(url);
+
+  ws.onopen = () => {
+    setWsStatus("connected");
+    console.log("✅ WebSocket conectado");
+  };
+
+  ws.onerror = (e) => {
+    setWsStatus("error");
+    console.error("❌ WebSocket error", e);
+  };
+
+  ws.onclose = () => {
+    setWsStatus("disconnected");
+    console.log("❌ WebSocket desconectado");
+    // Auto-reconectar si estamos capturando
+    if (isCapturing) {
+      setTimeout(connectWebSocket, 2000);
+    }
+  };
+}
+
+// ============================================================
+// CAPTURA DE PANTALLA
+// ============================================================
+async function startCapture() {
+  try {
+    // Solicita al usuario que elija pantalla/ventana
+    mediaStream = await navigator.mediaDevices.getDisplayMedia({
+      video: {
+        width:  { ideal: CANVAS_WIDTH },
+        height: { ideal: CANVAS_HEIGHT },
+        frameRate: { ideal: TARGET_FPS }
+      },
+      audio: false
+    });
+
+    // Conectar WebSocket
+    connectWebSocket();
+
+    // Mostrar preview
+    previewVideo.srcObject = mediaStream;
+    previewVideo.classList.add("active");
+    placeholder.style.display = "none";
+
+    // Si el usuario cancela la captura desde el sistema operativo
+    mediaStream.getVideoTracks()[0].onended = () => {
+      stopCapture();
+    };
+
+    // Iniciar loop de frames
+    isCapturing = true;
+    setCaptureStatus("capturing");
+    btnStart.disabled = true;
+    btnStop.disabled  = false;
+
+    sendFrameLoop();
+
+  } catch (err) {
+    console.error("Error al iniciar captura:", err);
+    alert("No se pudo iniciar la captura. Asegúrate de permitirlo en el navegador.");
+  }
+}
+
+function stopCapture() {
+  isCapturing = false;
+
+  if (animFrame) {
+    cancelAnimationFrame(animFrame);
+    animFrame = null;
+  }
+
+  if (mediaStream) {
+    mediaStream.getTracks().forEach(track => track.stop());
+    mediaStream = null;
+  }
+
+  previewVideo.srcObject = null;
+  previewVideo.classList.remove("active");
+  placeholder.style.display = "flex";
+
+  setCaptureStatus("stopped");
+  btnStart.disabled = false;
+  btnStop.disabled  = true;
+  fpsBadge.textContent = "0 FPS";
+
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.close();
+    ws = null;
+  }
+}
+
+// ============================================================
+// LOOP — envía frames al servidor a TARGET_FPS
+// ============================================================
+function sendFrameLoop() {
+  if (!isCapturing) return;
+
+  // Dibujar el video en el canvas oculto
+  ctx.drawImage(previewVideo, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+  // Convertir canvas a base64 PNG (calidad baja para ser liviano)
+  // Usamos toBlob con tipo image/jpeg y calidad baja para reducir tamaño
+  canvas.toBlob((blob) => {
+    if (!blob || !isCapturing) return;
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      if (!isCapturing) return;
+
+      // Extraer solo la parte base64 (sin el prefijo "data:image/jpeg;base64,")
+      const base64 = reader.result.split(",")[1];
+
+      // Enviar por WebSocket si está conectado
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          type: "frame",
+          payload: base64
+        }));
+      }
+
+      // Contador FPS
+      frameCount++;
+      const now = Date.now();
+      if (now - lastFpsTime >= 1000) {
+        fpsBadge.textContent = frameCount + " FPS";
+        frameCount = 0;
+        lastFpsTime = now;
+      }
+    };
+    reader.readAsDataURL(blob);
+  }, "image/jpeg", 0.6); // JPEG calidad 0.6 → buen balance tamaño/calidad
+
+  // Programar siguiente frame
+  // Calculamos el delay para mantener TARGET_FPS
+  const delay = 1000 / TARGET_FPS;
+  setTimeout(() => {
+    if (isCapturing) sendFrameLoop();
+  }, delay);
+}
+
+// ============================================================
+// UI — actualizar indicadores
+// ============================================================
+function setWsStatus(state) {
+  indWs.className = "status-indicator";
+  switch (state) {
+    case "connected":
+      indWs.classList.add("connected");
+      txtWs.textContent = "Conectado";
+      break;
+    case "connecting":
+      indWs.classList.add("capturing"); // parpadeo
+      txtWs.textContent = "Conectando...";
+      break;
+    case "error":
+      indWs.classList.add("error");
+      txtWs.textContent = "Error";
+      break;
+    default:
+      txtWs.textContent = "Desconectado";
+  }
+}
+
+function setCaptureStatus(state) {
+  indCap.className = "status-indicator";
+  switch (state) {
+    case "capturing":
+      indCap.classList.add("capturing");
+      txtCap.textContent = "Capturando";
+      break;
+    case "stopped":
+      txtCap.textContent = "Parada";
+      break;
+  }
+}
+
+// ============================================================
+// EVENTOS
+// ============================================================
+btnStart.addEventListener("click", startCapture);
+btnStop.addEventListener("click", stopCapture);
+</script>
+
+</body>
+</html>
