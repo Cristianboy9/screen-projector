@@ -6,38 +6,36 @@ const { createCanvas } = require("canvas");
 // ESTADO GLOBAL
 // =====================================================
 let lastFrame = null;       // último frame recibido (base64 JPEG de la web)
-let lastRGBA  = null;       // ese mismo frame pero como buffer RGBA crudo
+let lastPNG   = null;       // ese mismo frame pero como PNG buffer
 const captureClients = new Set();
 
 // =====================================================
-// DECODIFICAR JPEG → RGBA crudo
-// Roblox necesita los bytes en formato RGBA para WritePixelsBuffer.
-// Usamos la librería "canvas" (node-canvas) para decodificar el JPEG
-// y extraer los pixels uno por uno.
+// DECODIFICAR JPEG → PNG
+// Roblox 2021 necesita imágenes PNG, no bytes RGBA crudos
 // =====================================================
-const IMG_WIDTH  = 320;  // ancho de la imagen que enviamos a Roblox
-const IMG_HEIGHT = 180;  // alto  (16:9, resolución baja para que sea rápido)
+const IMG_WIDTH  = 1920;  // mismo tamaño que tu ImageLabel
+const IMG_HEIGHT = 1080;
 
-async function decodeJpegToRGBA(base64Jpeg) {
+async function convertJpegToPNG(base64Jpeg) {
   try {
-    const canvas  = createCanvas(IMG_WIDTH, IMG_HEIGHT);
-    const ctx     = canvas.getContext("2d");
-    const imgBuf  = Buffer.from(base64Jpeg, "base64");
-    // Crear una imagen a partir del buffer
-    const { createImageFromBuffer } = require("canvas");
-    // node-canvas no tiene createImageFromBuffer directamente, usamos otro enfoque
-    // Guardamos en un buffer temporal y lo leemos con Image
+    const canvas = createCanvas(IMG_WIDTH, IMG_HEIGHT);
+    const ctx = canvas.getContext("2d");
+    
+    // Cargar la imagen JPEG
     const { Image } = require("canvas");
     const img = new Image();
+    
+    // Convertir base64 a buffer
+    const imgBuf = Buffer.from(base64Jpeg, "base64");
     img.src = imgBuf;
-    // Dibujar la imagen redimensionada al canvas
+    
+    // Dibujar en el canvas
     ctx.drawImage(img, 0, 0, IMG_WIDTH, IMG_HEIGHT);
-    // Obtener los datos RGBA
-    const imageData = ctx.getImageData(0, 0, IMG_WIDTH, IMG_HEIGHT);
-    // imageData.data es un Uint8ClipArray con [R,G,B,A, R,G,B,A, ...]
-    return Buffer.from(imageData.data);
+    
+    // Convertir a PNG buffer
+    return canvas.toBuffer("image/png");
   } catch(e) {
-    console.error("Error decodificando JPEG a RGBA:", e.message);
+    console.error("Error convirtiendo JPEG a PNG:", e.message);
     return null;
   }
 }
@@ -49,28 +47,34 @@ const server = http.createServer(async (req, res) => {
   const urlPath = req.url.split("?")[0];
 
   // --------------------------------------------------
-  // GET /frame  →  retorna los bytes RGBA crudos
-  // Roblox hace polling aquí y descarga los pixels
+  // GET /frame.png  →  retorna imagen PNG
+  // Roblox carga esto directamente en el ImageLabel
   // --------------------------------------------------
-  if (urlPath === "/frame" && req.method === "GET") {
+  if (urlPath === "/frame.png" && req.method === "GET") {
     res.writeHead(200, {
-      "Content-Type": "application/octet-stream",  // bytes crudos, no imagen
+      "Content-Type": "image/png",
       "Access-Control-Allow-Origin": "*",
       "Cache-Control": "no-cache, no-store, must-revalidate",
-      "X-Image-Width": IMG_WIDTH.toString(),
-      "X-Image-Height": IMG_HEIGHT.toString(),
+      "Pragma": "no-cache",
+      "Expires": "0",
     });
 
-    if (lastRGBA) {
-      res.end(lastRGBA);
+    if (lastPNG) {
+      res.end(lastPNG);
     } else {
-      // Si no hay frame aún, enviar un buffer negro (todos los pixels negros, alpha=255)
-      const black = Buffer.alloc(IMG_WIDTH * IMG_HEIGHT * 4, 0);
-      // Poner alpha a 255 en cada pixel
-      for (let i = 3; i < black.length; i += 4) {
-        black[i] = 255;
-      }
-      res.end(black);
+      // Si no hay frame, crear una imagen negra
+      const canvas = createCanvas(IMG_WIDTH, IMG_HEIGHT);
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "#000000";
+      ctx.fillRect(0, 0, IMG_WIDTH, IMG_HEIGHT);
+      
+      // Texto de "esperando..."
+      ctx.fillStyle = "#00f0ff";
+      ctx.font = "48px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText("Esperando captura...", IMG_WIDTH / 2, IMG_HEIGHT / 2);
+      
+      res.end(canvas.toBuffer("image/png"));
     }
     return;
   }
@@ -122,10 +126,11 @@ wss.on("connection", (ws) => {
       if (data.type === "frame") {
         lastFrame = data.payload;  // guardar el base64 JPEG
 
-        // Decodificar a RGBA para que Roblox pueda usarlo
-        const rgba = await decodeJpegToRGBA(data.payload);
-        if (rgba) {
-          lastRGBA = rgba;
+        // Convertir a PNG para Roblox
+        const png = await convertJpegToPNG(data.payload);
+        if (png) {
+          lastPNG = png;
+          console.log("✅ Frame convertido a PNG (" + png.length + " bytes)");
         }
       }
     } catch (e) {
@@ -151,6 +156,6 @@ const PORT = process.env.PORT || 3000;
 
 server.listen(PORT, () => {
   console.log(`🚀 Servidor iniciado en el puerto ${PORT}`);
-  console.log(`📷 GET /frame  → bytes RGBA (${IMG_WIDTH}x${IMG_HEIGHT})`);
-  console.log(`📊 GET /status → info del servidor`);
+  console.log(`📷 GET /frame.png → imagen PNG (${IMG_WIDTH}x${IMG_HEIGHT})`);
+  console.log(`📊 GET /status   → info del servidor`);
 });
